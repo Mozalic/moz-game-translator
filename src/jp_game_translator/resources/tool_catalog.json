@@ -1,0 +1,103 @@
+{
+  "tools": [
+    {
+      "name": "GARbro",
+      "url": "https://github.com/morkt/GARbro",
+      "license": "MIT",
+      "engines": ["Visual Novel archives", "Kirikiri", "BGI/Ethornell", "QLIE", "many proprietary VN formats"],
+      "role": "archive_browser_extractor",
+      "integration": "Call CLI/console build or reuse format knowledge for archive extraction; keep script text extraction in project adapters.",
+      "notes": "Very broad VN archive coverage, but last GitHub release is old. Best used as an external optional tool."
+    },
+    {
+      "name": "Kuriimu2",
+      "url": "https://github.com/FanTranslatorsInternational/Kuriimu2",
+      "license": "Check upstream repository before bundling",
+      "engines": ["General game formats", "fan translation workflows"],
+      "role": "format_plugin_toolkit",
+      "integration": "Use as a reference and optional external adapter for formats with existing plugins.",
+      "notes": "Good project manager/toolkit model for many game-specific formats."
+    },
+    {
+      "name": "UnityPy",
+      "url": "https://github.com/K0lb3/UnityPy",
+      "license": "MIT",
+      "engines": ["Unity"],
+      "role": "library_extract_edit",
+      "integration": "Import as optional dependency for TextAsset, MonoBehaviour typetree, asset bundle text extraction and reinsertion.",
+      "notes": "Python library, fits this codebase well."
+    },
+    {
+      "name": "AssetRipper",
+      "url": "https://github.com/AssetRipper/AssetRipper",
+      "license": "GPL-3.0",
+      "engines": ["Unity"],
+      "role": "external_project_recovery",
+      "integration": "Use externally for analysis/recovery, avoid bundling unless GPL obligations are acceptable.",
+      "notes": "Excellent for full Unity project reconstruction, less ideal for lightweight text-only patching."
+    },
+    {
+      "name": "RPGMaker Trans",
+      "url": "https://rpgmakertrans.bitbucket.io/",
+      "license": "GPLv3",
+      "engines": ["RPG Maker 2000", "RPG Maker XP", "RPG Maker VX", "RPG Maker VX Ace"],
+      "role": "external_patch_workflow",
+      "integration": "Use as external adapter for older RPG Maker versions; do not copy GPL code into permissive core.",
+      "notes": "Patch-file workflow is useful for version-tolerant translations."
+    },
+    {
+      "name": "RPGMTranslate",
+      "url": "https://rpg-maker-translation-tools.github.io/rpgmtranslate/en/",
+      "license": "Check upstream repository before bundling",
+      "engines": ["RPG Maker XP", "RPG Maker VX", "RPG Maker VX Ace", "RPG Maker MV", "RPG Maker MZ"],
+      "role": "external_translation_tool",
+      "integration": "Use as an optional external workflow, especially for older RPG Maker assets.",
+      "notes": "Open-source RPG Maker translation tool with write-back semantics."
+    },
+    {
+      "name": "rpatool",
+      "url": "https://github.com/Shizmob/rpatool",
+      "license": "WTFPL",
+      "engines": ["Ren'Py"],
+      "role": "archive_extract_create_modify",
+      "integration": "Use as optional library/subprocess for .rpa extraction and repacking.",
+      "notes": "Can create, modify, list, extract Ren'Py RPA/RPI archives."
+    },
+    {
+      "name": "unrpyc",
+      "url": "https://github.com/CensoredUsername/unrpyc",
+      "license": "GPL-3.0",
+      "engines": ["Ren'Py"],
+      "role": "script_decompiler",
+      "integration": "Call externally when .rpy source is absent; keep license boundary clear.",
+      "notes": "Decompiler for .rpyc scripts."
+    },
+    {
+      "name": "wolftrans",
+      "url": "https://github.com/elizagamedev/wolftrans",
+      "license": "Check upstream repository before bundling",
+      "engines": ["Wolf RPG Editor"],
+      "role": "external_patch_workflow",
+      "integration": "Use as reference or subprocess for Wolf RPG text extraction and patching.",
+      "notes": "Early-state project, useful workflow ideas."
+    },
+    {
+      "name": "KirikiriTools",
+      "url": "https://github.com/arcusmaximus/KirikiriTools",
+      "license": "Check upstream repository before bundling",
+      "engines": ["Kirikiri", "KAG", "XP3"],
+      "role": "archive_pack_patch",
+      "integration": "Use externally for XP3 pack/unpack and patch overlays.",
+      "notes": "Helpful for avoiding encrypted archive rebuild problems."
+    },
+    {
+      "name": "VNTranslationTools",
+      "url": "https://github.com/arcusmaximus/VNTranslationTools",
+      "license": "Check upstream repository before bundling",
+      "engines": ["Kirikiri", "TyranoBuilder", "visual novels"],
+      "role": "text_extract_patch_reference",
+      "integration": "Use as design reference; repository is archived.",
+      "notes": "Explicitly targets extracting original text and patching translated text into VN formats."
+    }
+  ]
+}

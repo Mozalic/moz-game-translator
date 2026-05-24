@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local GUI settings and secrets
+configs/gui_settings.json
+configs/*.local.json
+configs/*secret*.json
+configs/*private*.json
+
+# Game workspaces and generated outputs
+work/
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak

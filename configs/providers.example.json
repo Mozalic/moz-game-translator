@@ -1,0 +1,40 @@
+﻿{
+    "providers":  {
+                      "openai":  {
+                                     "type":  "openai_compatible",
+                                     "base_url":  "https://api.openai.com/v1",
+                                     "api_key_env":  "OPENAI_API_KEY",
+                                     "model":  "gpt-4.1-mini",
+                                     "json_mode":  true
+                                 },
+                      "deepseek":  {
+                                       "type":  "openai_compatible",
+                                       "base_url":  "https://api.deepseek.com/v1",
+                                       "api_key_env":  "DEEPSEEK_API_KEY",
+                                       "model":  "deepseek-v4-pro",
+                                       "temperature":  0.2,
+                                       "json_mode":  false
+                                   },
+                      "qwen":  {
+                                   "type":  "openai_compatible",
+                                   "base_url":  "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                   "api_key_env":  "DASHSCOPE_API_KEY",
+                                   "model":  "qwen-plus",
+                                   "json_mode":  false
+                               },
+                      "moonshot":  {
+                                       "type":  "openai_compatible",
+                                       "base_url":  "https://api.moonshot.cn/v1",
+                                       "api_key_env":  "MOONSHOT_API_KEY",
+                                       "model":  "moonshot-v1-8k",
+                                       "json_mode":  false
+                                   },
+                      "openrouter":  {
+                                         "type":  "openai_compatible",
+                                         "base_url":  "https://openrouter.ai/api/v1",
+                                         "api_key_env":  "OPENROUTER_API_KEY",
+                                         "model":  "openai/gpt-4o-mini",
+                                         "json_mode":  false
+                                     }
+                  }
+}
