@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -11,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from jp_game_translator.translation.providers import (
     OpenAICompatibleProvider,
     ProviderConfig,
+    load_provider_config,
     _parse_term_translation_response,
     _parse_translation_response,
 )
@@ -31,6 +33,20 @@ class _FakeResponse:
 
 
 class ProviderModelsTest(unittest.TestCase):
+    def test_load_provider_config_accepts_utf8_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "providers.json"
+            config_path.write_text(
+                '\ufeff{"providers":{"deepseek":{"type":"openai_compatible","base_url":"https://api.example/v1","model":"model-a","api_key":"key"}}}',
+                encoding="utf-8",
+            )
+
+            config = load_provider_config(config_path, "deepseek")
+
+            self.assertEqual(config.name, "deepseek")
+            self.assertEqual(config.base_url, "https://api.example/v1")
+            self.assertEqual(config.model, "model-a")
+
     def test_list_models_reads_openai_compatible_response(self) -> None:
         provider = OpenAICompatibleProvider(
             ProviderConfig(

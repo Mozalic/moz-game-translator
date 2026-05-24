@@ -77,7 +77,7 @@ class TranslationResponseError(ValueError):
 
 
 def load_provider_config(config_path: Path, provider_name: str) -> ProviderConfig:
-    with config_path.open("r", encoding="utf-8") as handle:
+    with config_path.open("r", encoding="utf-8-sig") as handle:
         data = json.load(handle)
     providers = data.get("providers") or {}
     if provider_name not in providers:
@@ -311,7 +311,7 @@ class OpenAICompatibleProvider:
 
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                return json.loads(response.read().decode("utf-8-sig"))
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError("provider HTTP error %s: %s" % (exc.code, body)) from exc

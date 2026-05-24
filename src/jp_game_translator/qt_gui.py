@@ -34,7 +34,7 @@ from jp_game_translator.translation.token_usage import (
 )
 
 try:
-    from PySide6.QtCore import QRectF, Qt, QThread, QUrl, Signal
+    from PySide6.QtCore import QAbstractTableModel, QModelIndex, QRectF, Qt, QThread, QUrl, Signal
     from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QPainter, QPen
     from PySide6.QtWidgets import (
         QApplication,
@@ -66,6 +66,7 @@ try:
         QSplitter,
         QTableWidget,
         QTableWidgetItem,
+        QTableView,
         QTabWidget,
         QVBoxLayout,
         QWidget,
@@ -178,7 +179,7 @@ QTabBar::tab:selected {
     color: #2f7d6d;
     font-weight: 700;
 }
-QTableWidget {
+QTableWidget, QTableView {
     background: #ffffff;
     border: 1px solid #d8dee8;
     border-radius: 8px;
@@ -258,6 +259,83 @@ if QT_IMPORT_ERROR is None:
 
         def is_cancelled(self) -> bool:
             return self._cancel_event.is_set()
+
+
+    class EntryTableModel(QAbstractTableModel):
+        def __init__(
+            self,
+            headers: List[str],
+            status_display: Callable[[str], str],
+            parent: Optional[QWidget] = None,
+        ) -> None:
+            super().__init__(parent)
+            self.headers = headers
+            self.status_display = status_display
+            self.rows: List[TextEntry] = []
+
+        def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+            if parent.isValid():
+                return 0
+            return len(self.rows)
+
+        def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+            if parent.isValid():
+                return 0
+            return 4
+
+        def data(self, index: QModelIndex, role: int = Qt.DisplayRole):
+            if not index.isValid() or index.row() >= len(self.rows):
+                return None
+            entry = self.rows[index.row()]
+            if role == Qt.DisplayRole:
+                return self._display_value(entry, index.column())
+            if role == Qt.UserRole:
+                return entry.id
+            return None
+
+        def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole):
+            if role == Qt.DisplayRole and orientation == Qt.Horizontal and 0 <= section < len(self.headers):
+                return self.headers[section]
+            return super().headerData(section, orientation, role)
+
+        def set_headers(self, headers: List[str]) -> None:
+            self.headers = headers
+            self.headerDataChanged.emit(Qt.Horizontal, 0, max(len(headers) - 1, 0))
+
+        def set_rows(self, rows: List[TextEntry]) -> None:
+            self.beginResetModel()
+            self.rows = rows
+            self.endResetModel()
+
+        def entry_at(self, row: int) -> Optional[TextEntry]:
+            if 0 <= row < len(self.rows):
+                return self.rows[row]
+            return None
+
+        def row_for_entry_id(self, entry_id: Optional[str]) -> int:
+            if not entry_id:
+                return -1
+            for row, entry in enumerate(self.rows):
+                if entry.id == entry_id:
+                    return row
+            return -1
+
+        def _display_value(self, entry: TextEntry, column: int) -> str:
+            if column == 0:
+                return self._one_line(self.status_display(entry.status))
+            if column == 1:
+                return self._one_line(entry.source)
+            if column == 2:
+                return self._one_line(entry.translation or "")
+            if column == 3:
+                return self._one_line(entry.file)
+            return ""
+
+        def _one_line(self, value: str, limit: int = 140) -> str:
+            text = (value or "").replace("\r", "\\r").replace("\n", "\\n")
+            if len(text) > limit:
+                return text[: limit - 1] + "..."
+            return text
 
 
     def _short_token_count(value: int) -> str:
@@ -429,7 +507,7 @@ if QT_IMPORT_ERROR is None:
             if not self.config_path.exists():
                 return {"providers": {}}
             try:
-                with self.config_path.open("r", encoding="utf-8") as handle:
+                with self.config_path.open("r", encoding="utf-8-sig") as handle:
                     data = json.load(handle)
                 if not isinstance(data, dict):
                     return {"providers": {}}
@@ -806,6 +884,7 @@ if QT_IMPORT_ERROR is None:
             self.text_bindings: List[Tuple[object, str, str]] = []
             self.tab_bindings: List[Tuple[QTabWidget, int, str]] = []
             self.header_bindings: List[Tuple[QTableWidget, List[str]]] = []
+            self.model_header_bindings: List[Tuple[EntryTableModel, List[str]]] = []
 
             self.setWindowTitle(self.tr("app_title"))
             self.resize(1360, 920)
@@ -838,6 +917,10 @@ if QT_IMPORT_ERROR is None:
             self.header_bindings.append((table, keys))
             table.setHorizontalHeaderLabels([self.tr(key) for key in keys])
 
+        def bind_model_headers(self, model: EntryTableModel, keys: List[str]) -> None:
+            self.model_header_bindings.append((model, keys))
+            model.set_headers([self.tr(key) for key in keys])
+
         def apply_language(self) -> None:
             self.setWindowTitle(self.tr("app_title"))
             for widget, key, method in self.text_bindings:
@@ -846,6 +929,8 @@ if QT_IMPORT_ERROR is None:
                 tabs.setTabText(index, self.tr(key))
             for table, keys in self.header_bindings:
                 table.setHorizontalHeaderLabels([self.tr(key) for key in keys])
+            for model, keys in self.model_header_bindings:
+                model.set_headers([self.tr(key) for key in keys])
 
             self.language_combo.blockSignals(True)
             current = self.language
@@ -1395,15 +1480,22 @@ if QT_IMPORT_ERROR is None:
             splitter = QSplitter(Qt.Horizontal)
             layout.addWidget(splitter, 1)
 
-            self.entries_table = QTableWidget(0, 4)
+            self.entries_model = EntryTableModel([], self._display_status, self)
+            self.bind_model_headers(self.entries_model, ["status", "source", "translation", "file"])
+            self.entries_table = QTableView()
+            self.entries_table.setModel(self.entries_model)
             self.entries_table.setAlternatingRowColors(True)
             self.entries_table.setSelectionBehavior(QAbstractItemView.SelectRows)
             self.entries_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+            self.entries_table.setWordWrap(False)
+            self.entries_table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
             self.entries_table.verticalHeader().setVisible(False)
             self.entries_table.horizontalHeader().setStretchLastSection(True)
             self.entries_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-            self.bind_headers(self.entries_table, ["status", "source", "translation", "file"])
-            self.entries_table.itemSelectionChanged.connect(self._on_entry_selected)
+            self.entries_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+            self.entries_table.setColumnWidth(0, 96)
+            self.entries_table.setColumnWidth(3, 180)
+            self.entries_table.selectionModel().selectionChanged.connect(lambda _selected, _deselected: self._on_entry_selected())
             splitter.addWidget(self.entries_table)
 
             detail = QFrame()
@@ -1611,7 +1703,7 @@ if QT_IMPORT_ERROR is None:
             if not path.exists():
                 return {}
             try:
-                with path.open("r", encoding="utf-8") as handle:
+                with path.open("r", encoding="utf-8-sig") as handle:
                     loaded = json.load(handle)
                 return loaded if isinstance(loaded, dict) else {}
             except Exception:
@@ -1640,7 +1732,7 @@ if QT_IMPORT_ERROR is None:
             config_text = self.config_edit.text().strip() or str(self._default_provider_config_path())
             config_path = Path(config_text)
             try:
-                with config_path.open("r", encoding="utf-8") as handle:
+                with config_path.open("r", encoding="utf-8-sig") as handle:
                     loaded = json.load(handle)
             except Exception:
                 return []
@@ -1691,7 +1783,7 @@ if QT_IMPORT_ERROR is None:
             data = {}
             if path.exists():
                 try:
-                    with path.open("r", encoding="utf-8") as handle:
+                    with path.open("r", encoding="utf-8-sig") as handle:
                         loaded = json.load(handle)
                     if isinstance(loaded, dict):
                         data = loaded
@@ -2333,41 +2425,28 @@ if QT_IMPORT_ERROR is None:
             if not hasattr(self, "entries_table"):
                 return
             query = self.entry_search_edit.text().strip().lower() if hasattr(self, "entry_search_edit") else ""
-            current_entry_id = None
-            current_row = self.entries_table.currentRow()
-            if current_row >= 0:
-                current_item = self.entries_table.item(current_row, 0)
-                if current_item is not None:
-                    current_entry_id = str(current_item.data(Qt.UserRole) or "")
+            current_entry_id = self._current_entry_id()
             scroll_value = self.entries_table.verticalScrollBar().value()
             rows = []
-            selected_row = -1
             for entry in self.entries:
                 haystack = "\n".join([entry.source, entry.translation or "", entry.file, entry.status]).lower()
                 if query and query not in haystack:
                     continue
-                if entry.id == current_entry_id:
-                    selected_row = len(rows)
                 rows.append(entry)
 
             self.entries_table.setUpdatesEnabled(False)
-            self.entries_table.blockSignals(True)
+            selection_model = self.entries_table.selectionModel()
+            selection_model.blockSignals(True)
             try:
-                self.entries_table.setRowCount(len(rows))
-                for row, entry in enumerate(rows):
-                    values = [self._display_status(entry.status), entry.source, entry.translation or "", entry.file]
-                    for column, value in enumerate(values):
-                        item = QTableWidgetItem(self._one_line(value))
-                        if column == 0:
-                            item.setData(Qt.UserRole, entry.id)
-                        self.entries_table.setItem(row, column, item)
+                self.entries_model.set_rows(rows)
+                selected_row = self.entries_model.row_for_entry_id(current_entry_id)
                 if selected_row >= 0:
-                    self.entries_table.setCurrentCell(selected_row, 0)
+                    self.entries_table.setCurrentIndex(self.entries_model.index(selected_row, 0))
                     self.entries_table.selectRow(selected_row)
                 else:
                     self.entries_table.clearSelection()
             finally:
-                self.entries_table.blockSignals(False)
+                selection_model.blockSignals(False)
                 self.entries_table.setUpdatesEnabled(True)
 
             self.entries_table.verticalScrollBar().setValue(
@@ -2423,14 +2502,23 @@ if QT_IMPORT_ERROR is None:
             if selected_row >= 0:
                 self._on_term_selected()
 
+        def _current_entry(self) -> Optional[TextEntry]:
+            if not hasattr(self, "entries_model") or not hasattr(self, "entries_table"):
+                return None
+            index = self.entries_table.currentIndex()
+            if not index.isValid():
+                return None
+            return self.entries_model.entry_at(index.row())
+
+        def _current_entry_id(self) -> Optional[str]:
+            entry = self._current_entry()
+            return entry.id if entry is not None else None
+
         def _on_entry_selected(self) -> None:
-            row = self.entries_table.currentRow()
-            if row < 0:
+            index = self.entries_table.currentIndex()
+            if not index.isValid():
                 return
-            id_item = self.entries_table.item(row, 0)
-            if id_item is None:
-                return
-            entry = self._entry_by_id(str(id_item.data(Qt.UserRole)))
+            entry = self.entries_model.entry_at(index.row())
             if entry is None:
                 return
             self.entry_source_edit.setPlainText(entry.source)
@@ -2453,13 +2541,7 @@ if QT_IMPORT_ERROR is None:
             self.term_note_edit.setPlainText(term.note)
 
         def save_current_entry(self) -> None:
-            row = self.entries_table.currentRow()
-            if row < 0:
-                return
-            id_item = self.entries_table.item(row, 0)
-            if id_item is None:
-                return
-            entry = self._entry_by_id(str(id_item.data(Qt.UserRole)))
+            entry = self._current_entry()
             if entry is None:
                 return
             entry.translation = self.entry_translation_edit.toPlainText().rstrip("\n")

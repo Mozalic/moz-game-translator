@@ -6,12 +6,14 @@ from typing import Dict, List, Optional
 from jp_game_translator.core.models import DetectionResult
 
 from .base import GameAdapter
+from .pal_softpal import PalSoftpalAdapter
 from .rpg_maker_mv_mz import RpgMakerMvMzAdapter
 
 
 def get_adapters() -> List[GameAdapter]:
     return [
         RpgMakerMvMzAdapter(),
+        PalSoftpalAdapter(),
     ]
 
 

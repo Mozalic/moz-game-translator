@@ -94,10 +94,28 @@
       "name": "VNTranslationTools",
       "url": "https://github.com/arcusmaximus/VNTranslationTools",
       "license": "Check upstream repository before bundling",
-      "engines": ["Kirikiri", "TyranoBuilder", "visual novels"],
+      "engines": ["Kirikiri", "TyranoBuilder", "Softpal", "visual novels"],
       "role": "text_extract_patch_reference",
       "integration": "Use as design reference; repository is archived.",
       "notes": "Explicitly targets extracting original text and patching translated text into VN formats."
+    },
+    {
+      "name": "arc_unpacker",
+      "url": "https://github.com/vn-tools/arc_unpacker",
+      "license": "GPL-3.0",
+      "engines": ["PAL / Softpal", "Amuse Craft PAC"],
+      "role": "archive_format_reference",
+      "integration": "Use as a format reference for Softpal/Amuse Craft PAC archive structure; keep GPL code out of the bundled adapter.",
+      "notes": "Documents PAC v1/v2 table layout used by PAL / Pal.dll AVG titles."
+    },
+    {
+      "name": "GalScripts",
+      "url": "https://git.lifegpc.com/lifegpc/GalScripts",
+      "license": "MIT",
+      "engines": ["PAL / Softpal"],
+      "role": "text_cipher_reference",
+      "integration": "Use as a reference for Softpal TEXT.DAT decrypt/encrypt transforms and verify with local round-trip tests.",
+      "notes": "Contains small unpack/pack scripts for encrypted Softpal TEXT.DAT files."
     }
   ]
 }
