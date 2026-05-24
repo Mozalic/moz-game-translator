@@ -25,6 +25,7 @@ Thumbs.db
 
 # Local GUI settings and secrets
 configs/gui_settings.json
+configs/myproviders.json
 configs/*.local.json
 configs/*secret*.json
 configs/*private*.json
