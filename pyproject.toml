@@ -19,6 +19,9 @@ gui = [
   "PySide6==6.6.2; python_version < '3.9'",
   "PySide6>=6.9,<6.11; python_version >= '3.9'"
 ]
+exe = [
+  "pyinstaller>=6.0,<7"
+]
 
 [project.scripts]
 jgt = "jp_game_translator.cli:main"
