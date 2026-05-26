@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jp-game-translator"
-version = "0.0.1"
+version = "0.0.2"
 description = "Windows-first Japanese game text extraction, terminology, LLM translation, and reinsertion toolkit."
 readme = "README.md"
 requires-python = ">=3.8"
