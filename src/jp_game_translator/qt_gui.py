@@ -1134,6 +1134,7 @@ if QT_IMPORT_ERROR is None:
 
             actions = [
                 ("read_text_terms", self.read_text_and_terms, True),
+                ("unity_resource_index", self.index_unity_resources, False),
                 ("translate_terms", self.translate_terms, True),
                 ("translate_batch", self.translate_batch, True),
                 ("translate_all", self.translate_all_entries, True),
@@ -1151,7 +1152,7 @@ if QT_IMPORT_ERROR is None:
             self.bind_text(self.stop_button, "stop_translation")
             self.stop_button.clicked.connect(self.stop_current_task)
             self.stop_button.setEnabled(False)
-            grid.addWidget(self.stop_button, 3, 0, 1, 2)
+            grid.addWidget(self.stop_button, (len(actions) + 1) // 2, 0, 1, 2)
             return frame
 
         def _build_settings_panel(self) -> QWidget:
@@ -1237,12 +1238,24 @@ if QT_IMPORT_ERROR is None:
             self.retranslate_button.toggled.connect(self._save_gui_settings)
             grid.addWidget(self.retranslate_button, 5, 1, 1, 3)
 
+            font_strategy_label = QLabel()
+            self.bind_text(font_strategy_label, "unity_font_strategy")
+            self.unity_font_strategy_combo = QComboBox()
+            self.unity_font_strategy_combo.addItems(["auto", "jgt-runtime", "asset-patch", "none"])
+            saved_font_strategy = str(self.gui_settings.get("unity_font_strategy") or "auto")
+            font_strategy_index = self.unity_font_strategy_combo.findText(saved_font_strategy)
+            if font_strategy_index >= 0:
+                self.unity_font_strategy_combo.setCurrentIndex(font_strategy_index)
+            self.unity_font_strategy_combo.currentIndexChanged.connect(self._save_gui_settings)
+            grid.addWidget(font_strategy_label, 6, 0)
+            grid.addWidget(self.unity_font_strategy_combo, 6, 1, 1, 3)
+
             self.overwrite_button = QPushButton()
             self.overwrite_button.setCheckable(True)
             self.overwrite_button.setProperty("quiet", True)
             self.overwrite_button.setMaximumWidth(360)
             self.bind_text(self.overwrite_button, "overwrite")
-            grid.addWidget(self.overwrite_button, 6, 0, 1, 4)
+            grid.addWidget(self.overwrite_button, 7, 0, 1, 4)
 
             return frame
 
@@ -1719,6 +1732,8 @@ if QT_IMPORT_ERROR is None:
                 data["translation_concurrency"] = int(self.concurrency_spin.value())
             if hasattr(self, "retranslate_button"):
                 data["retranslate_existing"] = bool(self.retranslate_button.isChecked())
+            if hasattr(self, "unity_font_strategy_combo"):
+                data["unity_font_strategy"] = self.unity_font_strategy_combo.currentText().strip()
             path = self._gui_settings_path()
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("w", encoding="utf-8") as handle:
@@ -2268,6 +2283,45 @@ if QT_IMPORT_ERROR is None:
 
             self._run_task(self.tr("read_text_terms"), task, lambda _result: self._after_workspace_created())
 
+        def index_unity_resources(self) -> None:
+            export_dir_text = QFileDialog.getExistingDirectory(
+                self,
+                self.tr("choose_assetripper_export_dir"),
+                str(Path.cwd()),
+            )
+            assetripper_export_dir = Path(export_dir_text) if export_dir_text else None
+
+            def task() -> str:
+                game_dir = self._require_path(self.game_dir_edit, "game_dir")
+                workspace = self._workspace_path()
+                result = detect_best(game_dir)
+                if result is None or result.adapter_id != "unity":
+                    raise RuntimeError(self.tr("unity_only_feature"))
+                adapter = adapter_map()[result.adapter_id]
+                index = adapter.build_offline_resource_index(
+                    game_dir,
+                    assetripper_export_dir=assetripper_export_dir,
+                )
+                output_path = workspace / "unity_resource_index.json"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(
+                    json.dumps(index.to_dict(), ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                counts = index.counts()
+                return self.tr("unity_index_complete").format(
+                    output_path,
+                    counts.get("items", 0),
+                    counts.get("text_entries", 0),
+                    counts.get("japanese_strings", 0),
+                )
+
+            self._run_task(
+                self.tr("unity_resource_index"),
+                task,
+                lambda result: QMessageBox.information(self, self.tr("done"), str(result)),
+            )
+
         def _after_workspace_created(self) -> None:
             self.refresh_workspace_list()
             self.load_workspace(show_errors=False)
@@ -2403,14 +2457,26 @@ if QT_IMPORT_ERROR is None:
                 if manifest.adapter_id not in adapters:
                     raise RuntimeError("Adapter not available: %s" % manifest.adapter_id)
                 entries = load_workspace_entries(workspace)
-                adapters[manifest.adapter_id].apply(
-                    self._require_path(self.game_dir_edit, "game_dir"),
-                    workspace,
-                    self._require_path(self.output_dir_edit, "output_dir"),
-                    entries,
-                    overwrite=self.overwrite_button.isChecked(),
-                    progress=report,
-                )
+                adapter = adapters[manifest.adapter_id]
+                if manifest.adapter_id == "unity":
+                    adapter.apply(
+                        self._require_path(self.game_dir_edit, "game_dir"),
+                        workspace,
+                        self._require_path(self.output_dir_edit, "output_dir"),
+                        entries,
+                        overwrite=self.overwrite_button.isChecked(),
+                        progress=report,
+                        font_strategy=self.unity_font_strategy_combo.currentText().strip(),
+                    )
+                else:
+                    adapter.apply(
+                        self._require_path(self.game_dir_edit, "game_dir"),
+                        workspace,
+                        self._require_path(self.output_dir_edit, "output_dir"),
+                        entries,
+                        overwrite=self.overwrite_button.isChecked(),
+                        progress=report,
+                    )
                 translated = len([entry for entry in entries if entry.translation and entry.status != "rejected"])
                 return "Applied %s translated entries." % translated
 

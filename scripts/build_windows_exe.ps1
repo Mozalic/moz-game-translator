@@ -11,6 +11,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $EntryDirectory = Join-Path $Root "build\pyinstaller"
 $EntryPath = Join-Path $EntryDirectory "pyinstaller_entry.py"
 $SourcePath = Join-Path $Root "src"
+$ResourcesPath = Join-Path $SourcePath "jp_game_translator\resources"
 $DistPath = Join-Path $Root $OutputDirectory
 
 New-Item -ItemType Directory -Force -Path $EntryDirectory | Out-Null
@@ -38,6 +39,8 @@ $pyinstallerArgs = @(
     $SourcePath,
     "--collect-data",
     "jp_game_translator",
+    "--add-data",
+    "$ResourcesPath;jp_game_translator/resources",
     "--distpath",
     $DistPath,
     "--workpath",

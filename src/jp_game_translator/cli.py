@@ -48,6 +48,24 @@ def build_parser() -> argparse.ArgumentParser:
     extract_parser.add_argument("--workspace", type=Path, required=True)
     extract_parser.set_defaults(func=cmd_extract)
 
+    unity_index_parser = subparsers.add_parser(
+        "index-unity",
+        help="Build an offline Unity resource index for extraction coverage audits.",
+    )
+    unity_index_parser.add_argument("game_dir", type=Path)
+    unity_index_parser.add_argument("--output", type=Path, required=True)
+    unity_index_parser.add_argument(
+        "--assetripper-export-dir",
+        type=Path,
+        help="Optional AssetRipper export directory to scan as recovered Unity project text/YAML.",
+    )
+    unity_index_parser.add_argument(
+        "--no-unitypy",
+        action="store_true",
+        help="Skip UnityPy object listing and index only loose files plus optional AssetRipper exports.",
+    )
+    unity_index_parser.set_defaults(func=cmd_index_unity)
+
     terms_parser = subparsers.add_parser("terms", help="Extract terminology candidates into glossary.tsv.")
     terms_parser.add_argument("workspace", type=Path)
     terms_parser.add_argument("--min-count", type=int, default=2)
@@ -72,6 +90,12 @@ def build_parser() -> argparse.ArgumentParser:
     apply_parser.add_argument("workspace", type=Path)
     apply_parser.add_argument("output_dir", type=Path)
     apply_parser.add_argument("--overwrite", action="store_true")
+    apply_parser.add_argument(
+        "--unity-font-strategy",
+        choices=["none", "jgt-runtime", "asset-patch", "auto"],
+        default="auto",
+        help="Unity-only font fallback strategy. Default: auto.",
+    )
     apply_parser.set_defaults(func=cmd_apply)
 
     return parser
@@ -120,6 +144,34 @@ def cmd_extract(args: argparse.Namespace) -> int:
     )
     init_workspace(args.workspace, manifest, bundle.entries)
     print("Extracted %s entries into %s" % (len(bundle.entries), args.workspace))
+    return 0
+
+
+def cmd_index_unity(args: argparse.Namespace) -> int:
+    from jp_game_translator.adapters.unity import UnityAdapter
+
+    adapter = UnityAdapter()
+    if adapter.detect(args.game_dir) is None:
+        raise RuntimeError("Unity game structure was not detected: %s" % args.game_dir)
+
+    index = adapter.build_offline_resource_index(
+        args.game_dir,
+        assetripper_export_dir=args.assetripper_export_dir,
+        include_unitypy=not args.no_unitypy,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(index.to_dict(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    counts = index.counts()
+    print(
+        "Indexed Unity resources: items=%s, text_entries=%s, japanese_strings=%s -> %s"
+        % (
+            counts.get("items", 0),
+            counts.get("text_entries", 0),
+            counts.get("japanese_strings", 0),
+            args.output,
+        )
+    )
     return 0
 
 
@@ -192,13 +244,24 @@ def cmd_apply(args: argparse.Namespace) -> int:
     if manifest.adapter_id not in adapters:
         raise RuntimeError("adapter not available: %s" % manifest.adapter_id)
     entries = load_workspace_entries(args.workspace)
-    adapters[manifest.adapter_id].apply(
-        args.game_dir,
-        args.workspace,
-        args.output_dir,
-        entries,
-        overwrite=args.overwrite,
-    )
+    adapter = adapters[manifest.adapter_id]
+    if manifest.adapter_id == "unity":
+        adapter.apply(
+            args.game_dir,
+            args.workspace,
+            args.output_dir,
+            entries,
+            overwrite=args.overwrite,
+            font_strategy=args.unity_font_strategy,
+        )
+    else:
+        adapter.apply(
+            args.game_dir,
+            args.workspace,
+            args.output_dir,
+            entries,
+            overwrite=args.overwrite,
+        )
     translated = len([entry for entry in entries if entry.translation and entry.status != "rejected"])
     print("Applied %s translated entries into %s" % (translated, args.output_dir))
     return 0

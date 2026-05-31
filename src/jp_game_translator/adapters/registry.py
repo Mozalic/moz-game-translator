@@ -8,11 +8,15 @@ from jp_game_translator.core.models import DetectionResult
 from .base import GameAdapter
 from .pal_softpal import PalSoftpalAdapter
 from .rpg_maker_mv_mz import RpgMakerMvMzAdapter
+from .unreal_engine import UnrealEngineAdapter
+from .unity import UnityAdapter
 
 
 def get_adapters() -> List[GameAdapter]:
     return [
         RpgMakerMvMzAdapter(),
+        UnityAdapter(),
+        UnrealEngineAdapter(),
         PalSoftpalAdapter(),
     ]
 
