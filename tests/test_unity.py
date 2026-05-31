@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import struct
 import sys
 import tempfile
@@ -503,15 +504,13 @@ class UnityAdapterTest(unittest.TestCase):
 
             def prepare_tool(_game_dir: Path, tool_dir: Path):
                 tool_dir.mkdir(parents=True, exist_ok=True)
-                tool = tool_dir / "fake_managed_tool.cmd"
                 source = adapter._encode_base64_text("\u30aa\u30fc\u30c8\u30bb\u30fc\u30d6\u30b9\u30ed\u30c3\u30c8")
                 context = adapter._encode_base64_text("LoadPanelController::OnClickSlot")
-                tool.write_text(
-                    "@echo off\n"
-                    "if \"%%1\"==\"dump\" (\n"
-                    "  > \"%%3\" echo 123\t4\t%s\t%s\n"
-                    ")\n" % (source, context),
-                    encoding="utf-8",
+                tool = self._write_fake_managed_tool(
+                    tool_dir,
+                    "if command == 'dump':\n"
+                    "    Path(args[2]).write_text('123\\t4\\t%s\\t%s\\n', encoding='utf-8')\n"
+                    "    raise SystemExit(0)\n" % (source, context),
                 )
                 return tool, []
 
@@ -538,13 +537,11 @@ class UnityAdapterTest(unittest.TestCase):
 
             def prepare_tool(_game_dir: Path, tool_dir: Path):
                 tool_dir.mkdir(parents=True, exist_ok=True)
-                tool = tool_dir / "fake_managed_tool.cmd"
-                tool.write_text(
-                    "@echo off\n"
-                    "if \"%1\"==\"patch\" (\n"
-                    "  echo patched=1 skipped=0\n"
-                    ")\n",
-                    encoding="utf-8",
+                tool = self._write_fake_managed_tool(
+                    tool_dir,
+                    "if command == 'patch':\n"
+                    "    print('patched=1 skipped=0')\n"
+                    "    raise SystemExit(0)\n",
                 )
                 return tool, []
 
@@ -664,6 +661,34 @@ class UnityAdapterTest(unittest.TestCase):
     def _read_json(self, path: Path):
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
+
+    def _write_fake_managed_tool(self, tool_dir: Path, body: str) -> Path:
+        if os.name == "nt":
+            tool = tool_dir / "fake_managed_tool.cmd"
+            tool.write_text(
+                "@echo off\n"
+                "\"%s\" \"%%~f0.py\" %%*\n"
+                "exit /b %%ERRORLEVEL%%\n" % sys.executable,
+                encoding="utf-8",
+            )
+            script = tool_dir / "fake_managed_tool.cmd.py"
+        else:
+            tool = tool_dir / "fake_managed_tool"
+            script = tool
+
+        script.write_text(
+            "#!/usr/bin/env python3\n"
+            "from pathlib import Path\n"
+            "import sys\n"
+            "args = sys.argv[1:]\n"
+            "command = args[0] if args else ''\n"
+            + body
+            + "raise SystemExit(0)\n",
+            encoding="utf-8",
+        )
+        if os.name != "nt":
+            tool.chmod(0o755)
+        return tool
 
     def _unity_raw_string(self, value: str) -> bytes:
         raw = value.encode("utf-8")
